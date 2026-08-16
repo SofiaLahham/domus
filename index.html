@@ -6,6 +6,16 @@
 <meta name="theme-color" content="#f7f6fb">
 <title>Domus</title>
 
+<script>
+/* aplica o tema escolhido antes de pintar a tela, senão pisca o tema errado */
+(function(){
+  try{
+    var t = localStorage.getItem('domus-theme');
+    if(t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  }catch(e){}
+})();
+</script>
+
 <style>
 /* ================= tokens ================= */
 :root{
@@ -123,7 +133,16 @@ button{background:none;border:0;cursor:pointer}
   font-family:ui-rounded,"SF Pro Rounded",system-ui,sans-serif;
   font-size:29px;font-weight:800;letter-spacing:-.02em;
 }
-.gate p.sub{font-size:14px;color:var(--ink-2);margin:0 0 22px;line-height:1.5}
+.gate p.tag{
+  font-family:ui-rounded,"SF Pro Rounded",system-ui,sans-serif;
+  font-size:19px;font-weight:700;letter-spacing:-.01em;color:var(--ink);
+  margin:14px 0 8px;text-wrap:balance;
+}
+.gate p.sub{font-size:14px;color:var(--ink-2);margin:0 0 24px;line-height:1.62;max-width:52ch}
+.gate p.mode{
+  font-size:12px;font-weight:600;color:var(--ink-3);margin:0 0 14px;
+  padding-bottom:14px;border-bottom:1px solid var(--line-2);
+}
 .gate label{display:block;font-size:11px;letter-spacing:.09em;text-transform:uppercase;
   color:var(--ink-3);font-weight:700;margin:0 0 6px}
 .gate input{
@@ -146,6 +165,13 @@ button{background:none;border:0;cursor:pointer}
 .gate .alt b{color:var(--accent)}
 .gate .foot{font-size:12px;color:var(--ink-3);line-height:1.55;margin-top:20px;
   padding-top:16px;border-top:1px solid var(--line-2)}
+
+/* seletor de tema */
+.seg{display:flex;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface-2)}
+.seg button{flex:1;padding:11px 6px;font-size:13px;font-weight:600;color:var(--ink-2);
+  transition:background .2s,color .2s;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   .gate .msg{background:hsl(4 35% 17%);color:hsl(4 70% 80%);border-color:hsl(4 30% 30%)}
   .gate .msg.good{background:hsl(150 30% 14%);color:hsl(150 50% 72%);border-color:hsl(150 25% 26%)}
@@ -522,9 +548,12 @@ ol.steps b{color:var(--ink)}
       <img src="./icon-180.png" alt="" width="48" height="48">
       <b>Domus</b>
     </div>
-    <p class="sub" id="gateSub">Entre para a sua agenda aparecer igual no computador e no celular.</p>
+    <p class="tag">Organize sua semana.</p>
+    <p class="sub">Sua agenda, sua rotina, sincronizadas onde você quiser.</p>
 
     <div class="msg" id="gateMsg" hidden></div>
+
+    <p class="mode" id="gateMode">Entre com a sua conta.</p>
 
     <label for="gateEmail">E-mail</label>
     <input type="email" id="gateEmail" autocomplete="username" inputmode="email"
@@ -636,6 +665,15 @@ ol.steps b{color:var(--ink)}
   <div class="grab"></div>
   <h2>Domus</h2>
   <p class="hint">Sua agenda da semana.</p>
+
+  <h3>Aparência</h3>
+  <div class="seg" data-theme-seg>
+    <button type="button" data-t="auto">Automático</button>
+    <button type="button" data-t="light">Claro</button>
+    <button type="button" data-t="dark">Escuro</button>
+  </div>
+  <p class="hint" style="margin-top:9px">No automático, o Domus acompanha o tema do seu aparelho —
+    fica claro de dia e escuro de noite, se o iPhone estiver assim.</p>
 
   <h3>Sua conta</h3>
   <p>Conectada como <b id="accEmail">—</b>. Tudo que você muda aqui aparece nos seus outros aparelhos
@@ -1642,6 +1680,35 @@ ol.steps b{color:var(--ink)}
     } else fb(url, ok);
   });
 
+  /* ================= tema claro / escuro ================= */
+  var THEME_KEY = 'domus-theme';
+  function currentTheme(){
+    try{ var t = localStorage.getItem(THEME_KEY); if(t === 'light' || t === 'dark') return t; }catch(e){}
+    return 'auto';
+  }
+  function applyTheme(t){
+    if(t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+    else document.documentElement.removeAttribute('data-theme');
+    try{ localStorage.setItem(THEME_KEY, t); }catch(e){}
+
+    document.querySelectorAll('[data-theme-seg] button').forEach(function(b){
+      b.setAttribute('aria-pressed', b.dataset.t === t ? 'true' : 'false');
+    });
+    /* a barra de status do iPhone acompanha essa cor */
+    var m = document.querySelector('meta[name="theme-color"]');
+    if(m) m.setAttribute('content', getComputedStyle(document.body).backgroundColor);
+  }
+  document.querySelectorAll('[data-theme-seg] button').forEach(function(b){
+    b.addEventListener('click', function(){ applyTheme(b.dataset.t); });
+  });
+  if(window.matchMedia){
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onSys = function(){ if(currentTheme() === 'auto') applyTheme('auto'); };
+    if(mq.addEventListener) mq.addEventListener('change', onSys);
+    else if(mq.addListener) mq.addListener(onSys);
+  }
+  applyTheme(currentTheme());
+
   /* ================= sincronização ================= */
   function sbFetch(path, o){
     o = o || {};
@@ -1747,9 +1814,9 @@ ol.steps b{color:var(--ink)}
     gateMode = gateMode === 'in' ? 'up' : 'in';
     var up = gateMode === 'up';
     $('gateGo').textContent   = up ? 'Criar conta' : 'Entrar';
-    $('gateSub').textContent  = up
-      ? 'Escolha um e-mail e uma senha. É com eles que você entra no computador e no celular.'
-      : 'Entre para a sua agenda aparecer igual no computador e no celular.';
+    $('gateMode').textContent = up
+      ? 'Escolha um e-mail e invente uma senha nova, só do Domus.'
+      : 'Entre com a sua conta.';
     $('gateAlt').innerHTML    = up ? 'Já tenho conta. <b>Entrar</b>' : 'Ainda não tenho conta. <b>Criar uma</b>';
     $('gatePass').setAttribute('autocomplete', up ? 'new-password' : 'current-password');
     gateMsg('');
