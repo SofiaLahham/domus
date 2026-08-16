@@ -106,9 +106,17 @@ button{background:none;border:0;cursor:pointer}
   font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
   color:var(--on-accent);background:var(--accent);padding:5px 11px;border-radius:999px;
 }
+.navright{margin-left:auto;display:flex;align-items:center;gap:6px;flex:none}
+.gearbtn{
+  width:32px;height:30px;display:grid;place-items:center;border-radius:9px;
+  color:var(--ink-2);border:1px solid var(--line);
+}
+.gearbtn:active{background:var(--line-2)}
+.gearbtn svg{width:17px;height:17px}
 .syncpill{
-  margin-left:auto;display:flex;align-items:center;gap:5px;padding:5px 9px;border-radius:999px;
+  display:flex;align-items:center;gap:5px;padding:5px 9px;border-radius:999px;
   font-size:10.5px;font-weight:700;letter-spacing:.03em;color:var(--ink-3);
+  border:1px solid var(--line-2);flex:none;
 }
 .syncpill:active{background:var(--line-2)}
 .syncpill i{width:7px;height:7px;border-radius:50%;background:var(--ink-3);flex:none;transition:background .3s}
@@ -168,9 +176,12 @@ button{background:none;border:0;cursor:pointer}
 
 /* seletor de tema */
 .seg{display:flex;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface-2)}
-.seg button{flex:1;padding:11px 6px;font-size:13px;font-weight:600;color:var(--ink-2);
+.seg button{flex:1;padding:11px 4px 9px;color:var(--ink-2);
+  display:flex;flex-direction:column;align-items:center;gap:5px;
   transition:background .2s,color .2s;border-right:1px solid var(--line)}
 .seg button:last-child{border-right:0}
+.seg button svg{width:19px;height:19px;flex:none}
+.seg button span{font-size:11.5px;font-weight:600}
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   .gate .msg{background:hsl(4 35% 17%);color:hsl(4 70% 80%);border-color:hsl(4 30% 30%)}
@@ -469,8 +480,16 @@ ol.steps b{color:var(--ink)}
       <button class="arrow" id="prevWeek" aria-label="Semana anterior">‹</button>
       <button id="btnMonth" aria-label="Ver o mês inteiro"><span id="monthLabel">agosto</span><span class="caret">▼</span></button>
       <button class="arrow" id="nextWeek" aria-label="Próxima semana">›</button>
-      <button class="syncpill" id="syncPill" aria-label="Estado da sincronização"><i></i><span></span></button>
-      <button id="btnToday" hidden>Hoje</button>
+      <span class="navright">
+        <button id="btnToday" hidden>Hoje</button>
+        <button class="gearbtn" id="btnGear" aria-label="Ajustes, tema e conta">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"
+               stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3.1"/>
+            <path d="M19.4 15a1.6 1.6 0 0 0 .32 1.77l.06.06a1.9 1.9 0 1 1-2.7 2.7l-.05-.06a1.6 1.6 0 0 0-1.78-.32 1.6 1.6 0 0 0-.97 1.47V21a1.9 1.9 0 1 1-3.8 0v-.1a1.6 1.6 0 0 0-1.04-1.47 1.6 1.6 0 0 0-1.77.32l-.06.06a1.9 1.9 0 1 1-2.7-2.7l.06-.06a1.6 1.6 0 0 0 .32-1.77 1.6 1.6 0 0 0-1.47-.97H3a1.9 1.9 0 1 1 0-3.8h.1a1.6 1.6 0 0 0 1.47-1.05 1.6 1.6 0 0 0-.32-1.77l-.06-.06a1.9 1.9 0 1 1 2.7-2.7l.06.06a1.6 1.6 0 0 0 1.77.32H9a1.6 1.6 0 0 0 .97-1.47V3a1.9 1.9 0 1 1 3.8 0v.1a1.6 1.6 0 0 0 .97 1.47 1.6 1.6 0 0 0 1.78-.32l.05-.06a1.9 1.9 0 1 1 2.7 2.7l-.06.06a1.6 1.6 0 0 0-.32 1.77V9a1.6 1.6 0 0 0 1.47.97H21a1.9 1.9 0 1 1 0 3.8h-.1a1.6 1.6 0 0 0-1.47.97z"/>
+          </svg>
+        </button>
+      </span>
     </div>
     <div class="hd-top">
       <button class="rounded" id="dayTitle" aria-label="Personalizar este dia"></button>
@@ -493,7 +512,7 @@ ol.steps b{color:var(--ink)}
       <div class="daybar">
         <span class="count" id="dayCount"></span>
         <span class="grp">
-          <button class="tinybtn" id="btnGear" aria-label="Ajustes">⋯</button>
+          <button class="syncpill" data-sync aria-label="Estado da sincronização"><i></i><span></span></button>
           <button class="tinybtn" id="btnEdit" aria-pressed="false">Editar</button>
         </span>
       </div>
@@ -508,7 +527,7 @@ ol.steps b{color:var(--ink)}
     <div class="totwrap" id="totView">
       <div class="daybar">
         <span class="count" id="totRange"></span>
-        <span class="grp"><button class="tinybtn" id="btnGear2" aria-label="Ajustes">⋯</button></span>
+        <span class="grp"><button class="syncpill" data-sync aria-label="Estado da sincronização"><i></i><span></span></button></span>
       </div>
       <div class="headline">
         <div class="lead">Total do cronograma</div>
@@ -668,9 +687,28 @@ ol.steps b{color:var(--ink)}
 
   <h3>Aparência</h3>
   <div class="seg" data-theme-seg>
-    <button type="button" data-t="auto">Automático</button>
-    <button type="button" data-t="light">Claro</button>
-    <button type="button" data-t="dark">Escuro</button>
+    <button type="button" data-t="auto" aria-label="Tema automático">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="8.4" fill="none" stroke="currentColor" stroke-width="2"/>
+        <path d="M12 3.6a8.4 8.4 0 0 1 0 16.8z" fill="currentColor" stroke="none"/>
+      </svg>
+      <span>Automático</span>
+    </button>
+    <button type="button" data-t="light" aria-label="Tema claro">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round">
+        <circle cx="12" cy="12" r="4.1"/>
+        <path d="M12 2.4v2.1M12 19.5v2.1M2.4 12h2.1M19.5 12h2.1M5.3 5.3l1.5 1.5M17.2 17.2l1.5 1.5M18.7 5.3l-1.5 1.5M6.8 17.2l-1.5 1.5"/>
+      </svg>
+      <span>Claro</span>
+    </button>
+    <button type="button" data-t="dark" aria-label="Tema escuro">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20.1 14.6A8.6 8.6 0 0 1 9.4 3.9a8.6 8.6 0 1 0 10.7 10.7z"/>
+      </svg>
+      <span>Escuro</span>
+    </button>
   </div>
   <p class="hint" style="margin-top:9px">No automático, o Domus acompanha o tema do seu aparelho —
     fica claro de dia e escuro de noite, se o iPhone estiver assim.</p>
@@ -1501,7 +1539,6 @@ ol.steps b{color:var(--ink)}
   /* ================= ajustes ================= */
   function openGear(){ openS($('sheet')); }
   $('btnGear').addEventListener('click', openGear);
-  $('btnGear2').addEventListener('click', openGear);
 
   /* iOS abre a folha de compartilhamento: dá pra mandar direto pro WhatsApp, Notas, e-mail */
   if(navigator.share){
@@ -1747,10 +1784,11 @@ ol.steps b{color:var(--ink)}
 
   var SYNC_TXT = { ok:'salvo', sync:'salvando', pend:'salvando', off:'sem conexão', err:'erro', none:'sem conta' };
   function setSync(s){
-    var p = document.getElementById('syncPill');   /* pode rodar antes de $ existir */
-    if(!p) return;
-    p.dataset.s = s;
-    p.querySelector('span').textContent = SYNC_TXT[s] || '';
+    /* pode rodar antes de $ existir; há uma etiqueta na aba de dia e outra na de total */
+    document.querySelectorAll('[data-sync]').forEach(function(p){
+      p.dataset.s = s;
+      p.querySelector('span').textContent = SYNC_TXT[s] || '';
+    });
   }
 
   var pushTimer = null;
@@ -1895,9 +1933,11 @@ ol.steps b{color:var(--ink)}
       closeSheets(); render(); showGate();
     });
   });
-  $('syncPill').addEventListener('click', function(){
-    if(!session){ showGate(); return; }
-    pull();
+  document.querySelectorAll('[data-sync]').forEach(function(p){
+    p.addEventListener('click', function(){
+      if(!session){ showGate(); return; }
+      pull();
+    });
   });
 
   /* re-sincroniza quando o app volta pra frente ou a internet volta */
