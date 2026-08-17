@@ -919,16 +919,44 @@ ol.steps b{color:var(--ink)}
     for(var i=0;i<7;i++) if(a.days.indexOf(i) !== -1 && m[ck(a,i)]) n++;
     return n;
   }
+  /* Atividades com o mesmo nome contam como uma linha só, mesmo em horários
+     ou dias diferentes: "Almoçar" às 12h e às 13h são a mesma coisa. */
+  function groupKey(a){
+    return (a.text || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  }
+  function groupsOf(wk){
+    wk = wk || VWK;
+    var map = {}, order = [];
+    liveActs(wk).forEach(function(a){
+      var k = groupKey(a);
+      if(!map[k]){
+        map[k] = { key:k, text:a.text, emoji:'', h:null, goal:0, done:0, acts:[] };
+        order.push(k);
+      }
+      var g = map[k];
+      g.acts.push(a);
+      g.goal += goalOf(a);
+      g.done += Math.min(checksOf(a, wk), goalOf(a));
+      if(!g.emoji && a.emoji) g.emoji = a.emoji;
+      if(g.h == null && a.h != null) g.h = a.h;
+    });
+    return order.map(function(k){ return map[k]; });
+  }
+  function groupFor(a, wk){
+    var k = groupKey(a), gs = groupsOf(wk);
+    for(var i=0;i<gs.length;i++) if(gs[i].key === k) return gs[i];
+    return { goal:goalOf(a), done:Math.min(checksOf(a, wk), goalOf(a)) };
+  }
   function totals(wk){
     wk = wk || VWK;
-    var acts = liveActs(wk), sumDone = 0, sumGoal = 0, avg = 0;
-    acts.forEach(function(a){
-      var g = goalOf(a), c = Math.min(checksOf(a, wk), g);
-      sumDone += c; sumGoal += g; avg += c / g;
+    var gs = groupsOf(wk), sumDone = 0, sumGoal = 0, avg = 0;
+    gs.forEach(function(g){
+      var d = Math.min(g.done, g.goal);
+      sumDone += d; sumGoal += g.goal; avg += d / Math.max(1, g.goal);
     });
-    return { done:sumDone, goal:sumGoal, n:acts.length,
+    return { done:sumDone, goal:sumGoal, n:gs.length,
              pct: sumGoal ? sumDone / sumGoal : 0,
-             avg: acts.length ? avg / acts.length : 0 };
+             avg: gs.length ? avg / gs.length : 0 };
   }
   function dayStats(i, wk){
     var l = actsOf(i, wk), n = 0;
@@ -1039,6 +1067,7 @@ ol.steps b{color:var(--ink)}
     var li = document.createElement('li');
     var hue = a.h == null ? dayInfo(sel).h : a.h;
     li.className = 'act' + (isDone(a,sel) ? ' done' : '');
+    li.dataset.id = a.id;
     li.style.setProperty('--h', hue);
 
     var hit = document.createElement('button');
@@ -1061,7 +1090,8 @@ ol.steps b{color:var(--ink)}
     }
     var stamp = stampFor((state.done[VWK]||{})[ck(a,sel)], dateOf(sel));
     if(stamp){ var fs=document.createElement('span'); fs.className='fin'; fs.textContent='✓ '+stamp; mrow.appendChild(fs); }
-    var n = checksOf(a), g = goalOf(a);
+    /* o contador é o da etiqueta inteira, somando todos os horários com esse nome */
+    var gr = groupFor(a), g = gr.goal, n = Math.min(gr.done, g);
     var gl = document.createElement('span');
     gl.className = 'goal' + (n >= g ? ' full' : '');
     gl.textContent = n + '/' + g + ' na semana';
@@ -1115,16 +1145,17 @@ ol.steps b{color:var(--ink)}
         'Crie atividades e cada uma aparece aqui com a própria porcentagem.</span></span>';
       box.appendChild(p);
     }
-    liveActs().slice().sort(function(a,b){
-      return (checksOf(a)/goalOf(a)) - (checksOf(b)/goalOf(b));
-    }).forEach(function(a){
-      var g = goalOf(a), n = Math.min(checksOf(a), g), f = n/g;
-      var hue = a.h == null ? dayInfo(a.days.length ? a.days[0] : 0).h : a.h;
+    groupsOf().slice().sort(function(a,b){
+      return (a.done/Math.max(1,a.goal)) - (b.done/Math.max(1,b.goal));
+    }).forEach(function(gr){
+      var g = gr.goal, n = Math.min(gr.done, g), f = n/Math.max(1,g);
+      var hue = gr.h == null ? dayInfo(gr.acts[0].days.length ? gr.acts[0].days[0] : 0).h : gr.h;
+      var quantos = gr.acts.length > 1 ? ' · ' + gr.acts.length + ' horários' : '';
       var r = document.createElement('div'); r.className='effrow';
       r.innerHTML =
-        '<span class="e">'+(a.emoji||'•')+'</span>' +
-        '<span class="n"><span class="t">'+esc(a.text)+'</span>' +
-          '<span class="g">'+n+' de '+g+' vez'+(g>1?'es':'')+' na semana</span></span>' +
+        '<span class="e">'+(gr.emoji||'•')+'</span>' +
+        '<span class="n"><span class="t">'+esc(gr.text)+'</span>' +
+          '<span class="g">'+n+' de '+g+' vez'+(g>1?'es':'')+' na semana'+quantos+'</span></span>' +
         '<span class="bar"><i style="width:'+(f*100)+'%;background:hsl('+hue+',52%,52%)"></i></span>' +
         '<span class="p">'+pctTxt(f)+'</span>';
       box.appendChild(r);
@@ -1191,11 +1222,23 @@ ol.steps b{color:var(--ink)}
       li.querySelector('.meta').insertBefore(fs, li.querySelector('.goal'));
     }
 
-    var n = checksOf(a), g = goalOf(a), gl = li.querySelector('.goal');
-    gl.textContent = n + '/' + g + ' na semana';
-    gl.className = 'goal' + (n >= g ? ' full' : '');
+    refreshGoalLabels();
     elCount.innerHTML = countLabel(dayStats(sel), isRealWeek() && sel === REAL_IDX);
     paintStrip();
+  }
+  /* marcar um horário muda o contador de todos os outros com a mesma etiqueta */
+  function refreshGoalLabels(){
+    var byKey = {};
+    groupsOf().forEach(function(g){ byKey[g.key] = g; });
+    elList.querySelectorAll('.act').forEach(function(li){
+      var a = null;
+      for(var i=0;i<state.acts.length;i++) if(state.acts[i].id === li.dataset.id){ a = state.acts[i]; break; }
+      var gr = a && byKey[groupKey(a)], gl = li.querySelector('.goal');
+      if(!gr || !gl) return;
+      var n = Math.min(gr.done, gr.goal);
+      gl.textContent = n + '/' + gr.goal + ' na semana';
+      gl.className = 'goal' + (n >= gr.goal ? ' full' : '');
+    });
   }
   function move(a, dir){
     var i = state.acts.indexOf(a), j = i + dir;
