@@ -183,6 +183,19 @@ button{background:none;border:0;cursor:pointer}
 .seg button svg{width:19px;height:19px;flex:none}
 .seg button span{font-size:11.5px;font-weight:600}
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.alrow{display:flex;gap:10px}
+.alrow label{flex:1;min-width:0;font-size:11px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-3);font-weight:700;display:block}
+.alsel{
+  width:100%;margin-top:6px;background:var(--surface-2);border:1px solid var(--line);
+  border-radius:13px;padding:12px 12px;font-size:15px;color:var(--ink);
+  -webkit-appearance:none;appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:calc(100% - 17px) 50%,calc(100% - 12px) 50%;
+  background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:32px;
+}
+.alsel:focus{outline:none;border-color:var(--accent)}
+.alrow[hidden]{display:none}
 .seg.txt button{flex-direction:row;justify-content:center;padding:11px 2px}
 .seg.txt button span{font-size:11.5px}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
@@ -709,6 +722,18 @@ ol.steps b{color:var(--ink)}
   <p class="hint" id="edTimeHint">Só o começo já basta. Se preencher os dois, o app mostra a duração.</p>
   <button type="button" class="btn ghost" id="edTimeClear">Sem horário</button>
 
+  <h3 id="edAlHead">Alertas <span style="text-transform:none;letter-spacing:0;font-weight:500">(opcional)</span></h3>
+  <p class="hint" id="edAlHint">Quanto tempo antes você quer ser avisada. Valem no Calendário do celular
+    e, quando eu terminar, nas notificações do próprio Domus.</p>
+  <div class="alrow" id="edAlWrap">
+    <label>1º aviso
+      <select id="edAl1" class="alsel"></select>
+    </label>
+    <label>2º aviso
+      <select id="edAl2" class="alsel"></select>
+    </label>
+  </div>
+
   <h3>Quantas vezes na semana</h3>
   <p class="hint" id="edGoalHint">É essa a meta que vira a sua porcentagem.</p>
   <div class="stepper">
@@ -847,6 +872,15 @@ ol.steps b{color:var(--ink)}
     “reunião com a Ana quinta das 15h às 16h” e o Domus abre com a atividade já criada. Ele entende o dia
     da semana (ou “hoje” e “amanhã”) e o horário dentro da frase, inclusive faixas como “das 8h às 10h”.
     Se você falar ponto e vírgula, o que vier depois vira observação.</p>
+
+  <h3>Calendário do celular</h3>
+  <p>Manda sua rotina para o app Calendário como eventos semanais que se repetem sozinhos,
+    com os alertas que você escolheu em cada atividade. Aí quem te avisa é o próprio iPhone,
+    com alerta de verdade.</p>
+  <button class="btn primary" id="btnIcs">Enviar para o Calendário</button>
+  <p class="hint" id="icsHint">Só entram atividades com horário. Mudou a grade? Envie de novo: cada evento
+    leva uma identificação fixa, então o Calendário costuma atualizar em vez de duplicar — mas se aparecer
+    repetido, apague os antigos antes de reenviar.</p>
 
   <h3>Instalar no iPhone</h3>
   <ol class="steps">
@@ -1785,14 +1819,64 @@ ol.steps b{color:var(--ink)}
     $('edRepOnce').classList.toggle('primary', draft.once);
   }
 
+  /* ---------- alertas ---------- */
+  var ALERTAS = [
+    [0,     'Na hora'],
+    [10,    '10 minutos antes'],
+    [30,    '30 minutos antes'],
+    [60,    '1 hora antes'],
+    [120,   '2 horas antes'],
+    [240,   '4 horas antes'],
+    [1440,  '1 dia antes'],
+    [4320,  '3 dias antes'],
+    [7200,  '5 dias antes'],
+    [10080, '1 semana antes']
+  ];
+  function fillAlertSelects(){
+    ['edAl1','edAl2'].forEach(function(id){
+      var s = $(id);
+      s.innerHTML = '<option value="">Nenhum</option>';
+      ALERTAS.forEach(function(a){
+        var o = document.createElement('option');
+        o.value = a[0]; o.textContent = a[1];
+        s.appendChild(o);
+      });
+    });
+  }
+  fillAlertSelects();
+  function syncAlerts(){
+    var temHora = !!draft.time;
+    $('edAlWrap').hidden = !temHora;
+    $('edAlHead').hidden = !temHora;
+    $('edAlHint').hidden = !temHora;
+    $('edAl1').value = draft.alerts[0] != null ? String(draft.alerts[0]) : '';
+    $('edAl2').value = draft.alerts[1] != null ? String(draft.alerts[1]) : '';
+  }
+  function readAlerts(){
+    var out = [];
+    [$('edAl1').value, $('edAl2').value].forEach(function(v){
+      if(v === '') return;
+      var n = parseInt(v,10);
+      if(!isNaN(n) && out.indexOf(n) === -1) out.push(n);   /* dois alertas iguais viram um */
+    });
+    return out.sort(function(a,b){ return b-a; });          /* o mais distante primeiro */
+  }
+  $('edTime').addEventListener('input', function(){ draft.time = this.value; syncAlerts(); });
+  function alertTxt(min){
+    for(var i=0;i<ALERTAS.length;i++) if(ALERTAS[i][0] === min) return ALERTAS[i][1].toLowerCase();
+    return min + ' min antes';
+  }
+
   function openEditor(act, presetText){
     editingAct = act || null;
     goalTouched = !!act;
     var baseDay = sel === TOT ? (isRealWeek() ? REAL_IDX : 0) : sel;
     draft = act
       ? { emoji:act.emoji||'', text:act.text, h:(act.h==null?null:act.h), time:act.time||'', end:act.end||'',
-          days:act.days.slice(), goal:act.goal||1, once:!!act.once, note:act.note||'' }
-      : { emoji:'', text:presetText||'', h:null, time:'', end:'', days:[baseDay], goal:1, once:false, note:'' };
+          days:act.days.slice(), goal:act.goal||1, once:!!act.once, note:act.note||'',
+          alerts:(act.alerts||[]).slice(0,2) }
+      : { emoji:'', text:presetText||'', h:null, time:'', end:'', days:[baseDay], goal:1, once:false,
+          note:'', alerts:[] };
 
     $('edTitle').textContent = act ? 'Editar atividade' : 'Nova atividade';
     $('edHint').textContent = act ? 'Mude o que quiser — vale para todos os dias em que ela aparece.'
@@ -1805,7 +1889,7 @@ ol.steps b{color:var(--ink)}
     $('edEnd').value = draft.end;
     $('edGoal').value = draft.goal;
     markSwatch($('edSwatches'), draft.h);
-    syncDayChips(); syncGoalHint(); syncRep();
+    syncDayChips(); syncGoalHint(); syncRep(); syncAlerts();
     $('edDelete').hidden = !act; $('edDup').hidden = !act;
     openS($('editor'));
     if(!act) setTimeout(function(){ $('edText').focus(); }, 380);
@@ -1818,14 +1902,17 @@ ol.steps b{color:var(--ink)}
     draft.text = text; draft.note = $('edNote').value.trim();
     draft.time = $('edTime').value || '';
     draft.end  = draft.time ? ($('edEnd').value || '') : '';   /* fim sem começo não faz sentido */
+    draft.alerts = draft.time ? readAlerts() : [];             /* alerta sem horário não dispara */
     if(editingAct){
       editingAct.text=draft.text; editingAct.emoji=draft.emoji; editingAct.h=draft.h;
       editingAct.time=draft.time; editingAct.end=draft.end; editingAct.days=draft.days.slice();
       editingAct.goal=draft.goal; editingAct.once=draft.once; editingAct.note=draft.note;
+      editingAct.alerts=draft.alerts;
       if(draft.once) editingAct.week = VWK;
     } else {
       var a = { id:uid(), text:draft.text, emoji:draft.emoji, h:draft.h, time:draft.time, end:draft.end,
-                days:draft.days.slice(), goal:draft.goal, once:draft.once, note:draft.note };
+                days:draft.days.slice(), goal:draft.goal, once:draft.once, note:draft.note,
+                alerts:draft.alerts };
       if(draft.once) a.week = VWK;
       state.acts.push(a);
       if(sel !== TOT && draft.days.indexOf(sel) === -1) sel = draft.days[0];
@@ -1924,6 +2011,88 @@ ol.steps b{color:var(--ink)}
   $('dyCancel').addEventListener('click', closeSheets);
   $('dyReset').addEventListener('click', function(){
     state.days[sel] = null; save(); render(); closeSheets(); toast('Voltou ao padrão');
+  });
+
+  /* ================= exportar para o Calendário ================= */
+  var DIAS_ICS = ['MO','TU','WE','TH','FR','SA','SU'];
+
+  function icsEscape(s){
+    return String(s || '').replace(/\\/g,'\\\\').replace(/;/g,'\\;')
+                          .replace(/,/g,'\\,').replace(/\r?\n/g,'\\n');
+  }
+  function icsFold(line){
+    /* o formato exige linhas de no máximo 75 bytes */
+    if(line.length <= 73) return line;
+    var out = line.slice(0,73), rest = line.slice(73);
+    while(rest.length){ out += '\r\n ' + rest.slice(0,72); rest = rest.slice(72); }
+    return out;
+  }
+  function icsLocal(d, hhmm){
+    var p = (hhmm || '00:00').split(':');
+    return isoOf(d).replace(/-/g,'') + 'T' + pad2(+p[0]) + pad2(+p[1]) + '00';
+  }
+  function addMinutesTo(hhmm, mins){
+    var t = minOf(hhmm) + mins, dias = Math.floor(t / 1440);
+    t = ((t % 1440) + 1440) % 1440;
+    return { hhmm: pad2(Math.floor(t/60)) + ':' + pad2(t%60), diasDepois: dias };
+  }
+  function buildIcs(){
+    var L = [
+      'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Domus//PT-BR//',
+      'CALSCALE:GREGORIAN','METHOD:PUBLISH','X-WR-CALNAME:Domus'
+    ];
+    var carimbo = icsLocal(new Date(), pad2(new Date().getHours())+':'+pad2(new Date().getMinutes()));
+    var n = 0;
+
+    state.acts.forEach(function(a){
+      if(!a.time || !a.days.length) return;
+      n++;
+      var dias = a.days.slice().sort(function(x,y){ return x-y; });
+      var primeiro = addDays(REAL_MON, dias[0]);
+      var fim = a.end || addMinutesTo(a.time, 30).hhmm;
+      var fimInfo = a.end ? { diasDepois:0 } : addMinutesTo(a.time, 30);
+
+      L.push('BEGIN:VEVENT');
+      L.push('UID:domus-' + a.id + '@sofialahham.github.io');
+      L.push('DTSTAMP:' + carimbo);
+      L.push('DTSTART:' + icsLocal(primeiro, a.time));
+      L.push('DTEND:' + icsLocal(addDays(primeiro, fimInfo.diasDepois || 0), fim));
+      if(!a.once){
+        L.push('RRULE:FREQ=WEEKLY;BYDAY=' + dias.map(function(i){ return DIAS_ICS[i]; }).join(','));
+      }
+      L.push('SUMMARY:' + icsEscape((a.emoji ? a.emoji + ' ' : '') + a.text));
+      if(a.note) L.push('DESCRIPTION:' + icsEscape(a.note));
+      (a.alerts || []).forEach(function(min){
+        L.push('BEGIN:VALARM');
+        L.push('ACTION:DISPLAY');
+        L.push('DESCRIPTION:' + icsEscape(a.text));
+        L.push('TRIGGER:' + (min === 0 ? '-PT0M' : '-PT' + min + 'M'));
+        L.push('END:VALARM');
+      });
+      L.push('END:VEVENT');
+    });
+
+    L.push('END:VCALENDAR');
+    return { texto: L.map(icsFold).join('\r\n'), eventos: n };
+  }
+
+  $('btnIcs').addEventListener('click', function(){
+    var r = buildIcs();
+    if(!r.eventos){ toast('Nenhuma atividade com horário para exportar'); return; }
+    var arquivo = new File(['﻿' + r.texto], 'domus.ics', { type:'text/calendar;charset=utf-8' });
+
+    if(navigator.canShare && navigator.canShare({ files:[arquivo] })){
+      navigator.share({ files:[arquivo], title:'Domus' })
+        .then(function(){ toast(r.eventos + ' atividades enviadas'); })
+        .catch(function(){});
+      return;
+    }
+    var url = URL.createObjectURL(arquivo);
+    var link = document.createElement('a');
+    link.href = url; link.download = 'domus.ics';
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+    toast(r.eventos + ' atividades no arquivo domus.ics');
   });
 
   /* ================= ajustes ================= */
